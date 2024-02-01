@@ -2,7 +2,7 @@
 This repository presents a comprehensive solution to the hand-eye calibration problem, a fundamental challenge in robotics and computer vision. Hand-eye calibration is critical for applications requiring precise alignment between the coordinate system of a robotic manipulator (the 'hand') and a vision system (the 'eye').
 
 <div align="center">
-    <img src="https://camo.githubusercontent.com/7c8a5b5afae9babf135822abfe83f33f37d35d3b6b0b62b6a62834a0086a0ccb/687474703a2f2f692e737461636b2e696d6775722e636f6d2f64346e56622e6a7067" width="650" alt="Project Screenshot">
+    <img src="http://i.stack.imgur.com/7k4D3.jpg" width="800" alt="Project Screenshot">
 </div>
 
 ## Table of Contents
