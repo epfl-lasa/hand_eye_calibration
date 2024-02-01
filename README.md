@@ -56,15 +56,16 @@ Steps to install your project:
 
   3. **Optitrack:**
 
-     Refer to [https://github.com/bonato47/Optitrack_ROS2](https://github.com/bonato47/Optitrack_ROS2/tree/main/ros1_ws) to publish the pose of your camera and change the topic name in src/scripts/gather.py
+     Refer to [https://github.com/bonato47/Optitrack_ROS2](https://github.com/bonato47/Optitrack_ROS2/tree/main/ros1_ws) to publish the pose of your camera and change the topic name in src/scripts/gather.py accordingly
 
   4. **Data recording:**
+     
+     In order to record the data with a franka panda you can use the branch "calibration" of the repo: [https://github.com/epfl-lasa/panda-task-control/tree/calibration] to move the robotic arm to 64 different position and to send the data to the gathering process. First start the following script to gather the data and save it correctly:
+     
      ```bash
      python3 src/scripts/gather.py
      ```
-     Move the camera to obtain a set of different A and B. The bigger the variation (position and orientation) between you poses the better the estimation of X and Y (X and Z).
-
-     You can change the number of pose to save, mathematicaly a minimum of 3 are required, by default n=20. The pose are then save as .npy files
+     Once the data of a pose has been recorded the calibration script will move to the next position. Mathematicaly a minimum of 3 pose are required, by default n=64, the pose are then saved as .npy files
      
   6. **Data processing:**
      ```bash
