@@ -17,7 +17,7 @@ Steps to install your project:
 
 1. **Clone the Repository:**
    ```bash
-   git clone [https://github.com/your-username/your-repository-name.git](https://github.com/epfl-lasa/hand_eye_calibration.git)https://github.com/epfl-lasa/hand_eye_calibration.git
+   git clone https://github.com/epfl-lasa/hand_eye_calibration.git
    ```
 2. **Build and start docker image:**
    ```bash
@@ -31,7 +31,6 @@ Steps to install your project:
    ```bash
    catkin_make
    ```
-
 ## Usage
 
 1. **Camera:**
@@ -71,11 +70,4 @@ Steps to install your project:
      ```bash
      python3 src/scripts/process.py
      ```
-     The results are shown in both PoseStamped and SE(3) for X, Y can be used as a verification
-
-    
-    
-   
-  
-   
-   
+     The results are shown in both PoseStamped and SE(3) for X1, X2 
