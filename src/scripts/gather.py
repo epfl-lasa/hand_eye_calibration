@@ -80,16 +80,16 @@ def posestamped_to_so4(pose_stamped, inverse_transformation=False):
 def main():
     global latest_cam_pose, latest_robot_base_pose, latest_marker_pose, latest_ee_pose, gather
     # Initialize the ROS Node
-    rospy.init_node('pose_subscriber', anonymous=True)
+    rospy.init_node('calibration_recorder', anonymous=True)
 
     # Subscribe to the topics
     rospy.Subscriber("/vrpn_client_node/cam_grasp/pose", PoseStamped, cam_callback)
     rospy.Subscriber("/vrpn_client_node/franka_base16/pose", PoseStamped, robot_base_callback)
-    rospy.Subscriber("aruco_single/pose", PoseStamped, marker_callback)
-    rospy.Subscriber("ee_pose", PoseStamped, ee_pose_callback)
-    rospy.Subscriber('gathering', Bool, gathering_callback)
+    rospy.Subscriber("calibration/aruco_single/pose", PoseStamped, marker_callback)
+    rospy.Subscriber("calibration/ee_pose", PoseStamped, ee_pose_callback)
+    rospy.Subscriber('calibration/gathering', Bool, gathering_callback)
 
-    gathering_pub = rospy.Publisher('position_gathered', Bool, queue_size=1)
+    gathering_pub = rospy.Publisher('calibration/position_gathered', Bool, queue_size=1)
 
     n = 64 # depends on the number of poses in the control algorithm
     A1 = np.zeros((4,4,n))
@@ -108,18 +108,19 @@ def main():
                 rospy.sleep(2) #wait for arm to stop moving
                 data_captured = False
                 # Store and print the latest data
-                if latest_cam_pose and latest_robot_base_pose and latest_marker_pose:
+                if latest_cam_pose and latest_robot_base_pose and latest_marker_pose and latest_ee_pose:
                     now = rospy.Time.now().to_sec()
                     delta_time_camera = latest_cam_pose.header.stamp.to_sec() - now
                     delta_time_robot_base = latest_robot_base_pose.header.stamp.to_sec() - now
                     delta_time_marker = latest_marker_pose.header.stamp.to_sec() - now
+                    delta_time_ee = latest_ee_pose.header.stamp.to_sec() - now
                     
-                    if np.max(delta_time_camera, delta_time_robot_base, delta_time_marker) < 0.5:
+                    if np.max(delta_time_camera, delta_time_robot_base, delta_time_marker, delta_time_ee) < 0.5:
                         A1[:,:,i] = posestamped_to_so4(latest_cam_pose)
                         B1[:,:,i] = posestamped_to_so4(latest_marker_pose, inverse_transformation = True)
                         
-                        A2[:,:,i] = posestamped_to_so4(latest_cam_pose, inverse_transformation) @ posestamped_to_so4(latest_robot_base_pose)
-                        B2[:,:,i] = posestamped_to_so4(latest_ee_pose, inverse_transformation)
+                        A2[:,:,i] = posestamped_to_so4(latest_cam_pose, inverse_transformation = True) @ posestamped_to_so4(latest_robot_base_pose)
+                        B2[:,:,i] = posestamped_to_so4(latest_ee_pose, inverse_transformation = True)
                         
                         i+=1
                         data_captured = True
@@ -130,14 +131,20 @@ def main():
                             rospy.logerr("No data from robot base pose since [s]: " +str(delta_time_camera))
                         if delta_time_marker > 0.5:
                             rospy.logerr("No data from marker pose since [s]: " +str(delta_time_camera))
+                        if delta_time_ee > 0.5:
+                            rospy.logerr("No data from ee pose since [s]: " +str(delta_time_ee))
+                            
                             
                 else:
-                    if latest_cam_pose:
+                    if not latest_cam_pose:
                         rospy.logerr("No data received from marker pose topic")
-                    if latest_robot_base_pose:
+                    if not latest_robot_base_pose:
                         rospy.logerr("No data received from robot pose topic")
-                    if latest_marker_pose:
+                    if not latest_marker_pose:
                         rospy.logerr("No data received from camera pose topic")
+                    if not latest_ee_pose:
+                        rospy.logerr("No data received from end effector pose topic")
+                        
                 
                 if data_captured:
                     gathering_pub.publish(True)
