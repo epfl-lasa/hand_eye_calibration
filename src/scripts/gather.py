@@ -39,7 +39,7 @@ def gathering_callback(msg):
     global gather 
     gather = msg.data
 
-def posestamped_to_so4(pose_stamped, inverse_transformation=False):
+def posestamped_to_se3(pose_stamped, inverse_transformation=False):
     """
     Convert PoseStamped message to SO(4) representation (4x4 transformation matrix).
     Optionally, invert the entire transformation matrix.
@@ -116,11 +116,11 @@ def main():
                     delta_time_ee = latest_ee_pose.header.stamp.to_sec() - now
                     
                     if np.max(delta_time_camera, delta_time_robot_base, delta_time_marker, delta_time_ee) < 0.5:
-                        A1[:,:,i] = posestamped_to_so4(latest_cam_pose)
-                        B1[:,:,i] = posestamped_to_so4(latest_marker_pose, inverse_transformation = True)
+                        A1[:,:,i] = posestamped_to_se3(latest_cam_pose)
+                        B1[:,:,i] = posestamped_to_se3(latest_marker_pose, inverse_transformation = True)
                         
-                        A2[:,:,i] = posestamped_to_so4(latest_cam_pose, inverse_transformation = True) @ posestamped_to_so4(latest_robot_base_pose)
-                        B2[:,:,i] = posestamped_to_so4(latest_ee_pose, inverse_transformation = True)
+                        A2[:,:,i] = posestamped_to_se3(latest_cam_pose, inverse_transformation = True) @ posestamped_to_se3(latest_robot_base_pose)
+                        B2[:,:,i] = posestamped_to_se3(latest_ee_pose, inverse_transformation = True)
                         
                         i+=1
                         data_captured = True
