@@ -16,8 +16,11 @@ FWD_ARGS+=(--privileged)
 
 # network for ros
 FWD_ARGS+=(--net host)
-FWD_ARGS+=(--env ROS_HOSTNAME="$(hostname)")
+#FWD_ARGS+=(--env ROS_HOSTNAME="$(hostname)")
 #HOST_IP=$(hostname -I | cut -d' ' -f1)
 FWD_ARGS+=(--env ROS_IP="$ROS_IP")
+FWD_ARGS+=(--env ROS_MASTER_URI="$ROS_MASTER_URI")
 
-aica-docker interactive calibration:${ROS_DISTRO} "${FWD_ARGS[@]}"
+aica-docker interactive calibration:${ROS_DISTRO} \
+    "${FWD_ARGS[@]}" \
+    --no-hostname
