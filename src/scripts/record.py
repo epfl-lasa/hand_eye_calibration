@@ -12,7 +12,7 @@ latest_cam_pose = None
 latest_robot_base_pose = None
 latest_marker_pose = None
 latest_ee_pose = None
-gather = None
+recording = None
 
 # Callback for the camera topic
 def cam_callback(msg):
@@ -34,10 +34,10 @@ def ee_pose_callback(msg):
     global latest_ee_pose
     latest_ee_pose = msg
 
-# Boolean callback to start gathering pose data (robot reached correct pose) 
-def gathering_callback(msg):
-    global gather 
-    gather = msg.data
+# Boolean callback to start recording pose data (robot reached correct pose) 
+def recording_callback(msg):
+    global recording 
+    recording = msg.data
 
 def posestamped_to_se3(pose_stamped, inverse_transformation=False):
     """
@@ -78,18 +78,19 @@ def posestamped_to_se3(pose_stamped, inverse_transformation=False):
     return transformation_matrix
 
 def main():
-    global latest_cam_pose, latest_robot_base_pose, latest_marker_pose, latest_ee_pose, gather
+    global latest_cam_pose, latest_robot_base_pose, latest_marker_pose, latest_ee_pose, recording
     # Initialize the ROS Node
-    rospy.init_node('calibration_recorder', anonymous=True)
+    #rospy.init_node('calibration_recorder', anonymous=True)
+    rospy.init_node('calibration_recorder')
 
     # Subscribe to the topics
     rospy.Subscriber("/vrpn_client_node/cam_grasp/pose", PoseStamped, cam_callback)
     rospy.Subscriber("/vrpn_client_node/franka_base16/pose", PoseStamped, robot_base_callback)
-    rospy.Subscriber("calibration/aruco_single/pose", PoseStamped, marker_callback)
+    rospy.Subscriber("aruco_single/pose", PoseStamped, marker_callback)
     rospy.Subscriber("calibration/ee_pose", PoseStamped, ee_pose_callback)
-    rospy.Subscriber('calibration/gathering', Bool, gathering_callback)
+    rospy.Subscriber("calibration/recording", Bool, recording_callback)
 
-    gathering_pub = rospy.Publisher('calibration/position_gathered', Bool, queue_size=1)
+    recorded_pub = rospy.Publisher("calibration/position_recorded", Bool, queue_size=1)
 
     n = 64 # depends on the number of poses in the control algorithm
     A1 = np.zeros((4,4,n))
@@ -103,19 +104,20 @@ def main():
     
     # Main loop
     try:
+        print("Starting recording process")
         while not rospy.is_shutdown() and i < n:
-            if gather:
+            if recording:
                 rospy.sleep(2) #wait for arm to stop moving
                 data_captured = False
                 # Store and print the latest data
                 if latest_cam_pose and latest_robot_base_pose and latest_marker_pose and latest_ee_pose:
                     now = rospy.Time.now().to_sec()
-                    delta_time_camera = latest_cam_pose.header.stamp.to_sec() - now
-                    delta_time_robot_base = latest_robot_base_pose.header.stamp.to_sec() - now
-                    delta_time_marker = latest_marker_pose.header.stamp.to_sec() - now
-                    delta_time_ee = latest_ee_pose.header.stamp.to_sec() - now
+                    delta_time_camera =  now - latest_cam_pose.header.stamp.to_sec()
+                    delta_time_robot_base = now - latest_robot_base_pose.header.stamp.to_sec()
+                    delta_time_marker = now - latest_marker_pose.header.stamp.to_sec()
+                    delta_time_ee = now - latest_ee_pose.header.stamp.to_sec()
                     
-                    if np.max(delta_time_camera, delta_time_robot_base, delta_time_marker, delta_time_ee) < 0.5:
+                    if np.max((delta_time_camera, delta_time_robot_base, delta_time_marker, delta_time_ee)) < time_threshold:
                         A1[:,:,i] = posestamped_to_se3(latest_cam_pose)
                         B1[:,:,i] = posestamped_to_se3(latest_marker_pose, inverse_transformation = True)
                         
@@ -125,13 +127,13 @@ def main():
                         i+=1
                         data_captured = True
                     else:
-                        if delta_time_camera > 0.5:
+                        if delta_time_camera > time_threshold:
                             rospy.logerr("No data from camera pose since [s]: " +str(delta_time_camera))
-                        if delta_time_robot_base > 0.5:
+                        if delta_time_robot_base > time_threshold:
                             rospy.logerr("No data from robot base pose since [s]: " +str(delta_time_camera))
-                        if delta_time_marker > 0.5:
+                        if delta_time_marker > time_threshold:
                             rospy.logerr("No data from marker pose since [s]: " +str(delta_time_camera))
-                        if delta_time_ee > 0.5:
+                        if delta_time_ee > time_threshold:
                             rospy.logerr("No data from ee pose since [s]: " +str(delta_time_ee))
                             
                             
@@ -147,8 +149,8 @@ def main():
                         
                 
                 if data_captured:
-                    gathering_pub.publish(True)
-                    gather = False
+                    recorded_pub.publish(True)
+                    recording = False
                     rospy.loginfo("Picture " +str(i) + "/" + str(n))
                     
 
