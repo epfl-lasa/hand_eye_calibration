@@ -62,7 +62,7 @@ Steps to install your project:
      In order to record the data with a franka panda you can use the branch "calibration" of the repo: [https://github.com/epfl-lasa/panda-task-control/tree/calibration] to move the robotic arm to 64 different position and to send the data to the gathering process. First start the following script to gather the data and save it correctly:
      
      ```bash
-     python3 src/scripts/gather.py
+     python3 src/scripts/record.py
      ```
      Once the data of a pose has been recorded the calibration script will move to the next position. Mathematicaly a minimum of 3 pose are required, by default n=64, the pose are then saved as .npy files
      

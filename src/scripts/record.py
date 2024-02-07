@@ -92,7 +92,7 @@ def main():
 
     recorded_pub = rospy.Publisher("calibration/position_recorded", Bool, queue_size=1)
 
-    n = 64 # depends on the number of poses in the control algorithm
+    n = 3**6 # depends on the number of poses in the control algorithm
     A1 = np.zeros((4,4,n))
     B1 = np.zeros((4,4,n))
     A2 = np.zeros((4,4,n))
@@ -107,7 +107,7 @@ def main():
         print("Starting recording process")
         while not rospy.is_shutdown() and i < n:
             if recording:
-                rospy.sleep(2) #wait for arm to stop moving
+                rospy.sleep(2*time_threshold) #wait for arm to stop moving
                 data_captured = False
                 # Store and print the latest data
                 if latest_cam_pose and latest_robot_base_pose and latest_marker_pose and latest_ee_pose:
@@ -130,20 +130,20 @@ def main():
                         if delta_time_camera > time_threshold:
                             rospy.logerr("No data from camera pose since [s]: " +str(delta_time_camera))
                         if delta_time_robot_base > time_threshold:
-                            rospy.logerr("No data from robot base pose since [s]: " +str(delta_time_camera))
+                            rospy.logerr("No data from robot base pose since [s]: " +str(delta_time_robot_base))
                         if delta_time_marker > time_threshold:
-                            rospy.logerr("No data from marker pose since [s]: " +str(delta_time_camera))
+                            rospy.logerr("No data from marker pose since [s]: " +str(delta_time_marker))
                         if delta_time_ee > time_threshold:
                             rospy.logerr("No data from ee pose since [s]: " +str(delta_time_ee))
                             
                             
                 else:
                     if not latest_cam_pose:
-                        rospy.logerr("No data received from marker pose topic")
+                        rospy.logerr("No data received from camera pose topic")
                     if not latest_robot_base_pose:
                         rospy.logerr("No data received from robot pose topic")
                     if not latest_marker_pose:
-                        rospy.logerr("No data received from camera pose topic")
+                        rospy.logerr("No data received from marker pose topic")
                     if not latest_ee_pose:
                         rospy.logerr("No data received from end effector pose topic")
                         
