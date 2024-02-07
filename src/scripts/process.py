@@ -70,55 +70,12 @@ def result_to_se3(result):
     M[:3, 3] = T
     return M
 
-def pose_estimation(A_matrices, B_matrices, method=cv2.CALIB_HAND_EYE_TSAI):
-    """
-    Estimate the pose transformation between a robot's end-effector and a camera using hand-eye calibration,
-    given 3D arrays of transformation matrices.
-    
-    Args:
-    - A_matrices (np.array): A 3D numpy array of shape (4, 4, n) representing the robot base to end-effector transformations.
-    - B_matrices (np.array): A 3D numpy array of shape (4, 4, n) representing the camera to calibration object transformations.
-    
-    Returns:
-    - transformation_matrix (np.array): The 4x4 transformation matrix from the camera to the robot gripper.
-    """
-    
-    n = A_matrices.shape[2]
-    R_gripper2base_vec = []
-    t_gripper2base = []
-    R_target2cam_vec = []
-    t_target2cam = []
-    
-    for i in range(n):
-        # Extract rotation (R) and translation (t) components for each slice
-        R_gripper2base_vec.append(A_matrices[:3, :3, i])
-        t_gripper2base.append(A_matrices[:3, 3, i].reshape(3, 1))
-
-        R_target2cam_vec.append(B_matrices[:3, :3, i])
-        t_target2cam.append(B_matrices[:3, 3, i].reshape(3, 1))
-    
-    # Perform hand-eye calibration to solve for the transformation from camera to gripper
-    R_cam2gripper, t_cam2gripper = cv2.calibrateHandEye(
-        R_gripper2base=R_gripper2base_vec,
-        t_gripper2base=t_gripper2base,
-        R_target2cam=R_target2cam_vec,
-        t_target2cam=t_target2cam,
-        method=method
-    )
-
-    # Create the 4x4 transformation matrix from the rotation matrix and translation vector
-    transformation_matrix = np.eye(4)
-    transformation_matrix[:3, :3] = R_cam2gripper
-    transformation_matrix[:3, 3] = t_cam2gripper.flatten()
-
-    return transformation_matrix
-
 def main():
     # Determine the path for loading the .npy files
     script_dir = os.path.dirname(os.path.realpath(__file__))
     
     # Load the A and B matrices from .npy files in the same directory as the script
-    real_data = False
+    real_data = True
     if real_data:
         A1 = np.load(os.path.join(script_dir, 'A1_matrices.npy'))
         B1 = np.load(os.path.join(script_dir, 'B1_matrices.npy'))
@@ -128,76 +85,105 @@ def main():
         # Determine the directory of the current file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         # Construct the path to the data file in the same directory
-        data_file = os.path.join(current_dir, '../Pose-Estimation-for-Sensor-Calibration/pose_sim_data.p') #random 3deg, 3mm noise added to measurements
+        data_file = os.path.join(current_dir, '../Pose-Estimation-for-Sensor-Calibration/pose_sim_data_noisy.p') #random 3deg, 3mm noise added to measurements
         with open(data_file, mode='rb') as f:
             sim_data = pickle.load(f)
         A1=sim_data['xfm_A']
         B1=sim_data['xfm_B']
-        A2=A1
-        B2=B1
+        A2=A1[:,:,:]
+        B2=B1[:,:,:]
         
-    n = A1.shape[2]-1
+    n = A2.shape[2] - 1
 
     #Iterate over the matrices two by two
-    AA1 = np.empty((4, 4, n))
-    BB1 = np.empty((4, 4, n))
-    AA2 = np.empty((4, 4, n))
-    BB2 = np.empty((4, 4, n))
+    # AA1 = np.empty((4, 4, n))
+    # BB1 = np.empty((4, 4, n))
+    # AA2 = np.empty((4, 4, n))
+    # BB2 = np.empty((4, 4, n))
     
     
     # Senidng data to the Kalman Filtering methods
-    ekf1=EKF()
-    ekf2=EKF()
-    iekf1=IEKF()
-    iekf2=IEKF()
-    ukf1=UKF()
-    ukf2=UKF()
-    for i in range(n):
+    # ekf1=EKF()
+    # iekf1=IEKF()
+    # ukf1=UKF()
+    # ekf2=EKF()
+    # iekf2=IEKF()
+    # ukf2=UKF()
+    # for i in range(n):
         # Multiply pairs of matrices
-        AA1[:, :, i] = np.linalg.inv(A1[:, :, i]) @ A1[:, :, i + 1]
-        BB1[:, :, i] = np.linalg.inv(B1[:, :, i]) @ B1[:, :, i + 1]
-        # AA2[:, :, i] = A2[:, :, i] @ np.linalg.inv(A2[:, :, i + 1])
-        # BB2[:, :, i] = B2[:, :, i] @ np.linalg.inv(B2[:, :, i + 1])
+        # AA1[:, :, i] = np.linalg.inv(A1[:, :, i]) @ A1[:, :, i + 1]
+        # BB1[:, :, i] = np.linalg.inv(B1[:, :, i]) @ B1[:, :, i + 1]
+        # AA2[:, :, i] = np.linalg.inv(A2[:, :, i]) @ A2[:, :, i + 1]
+        # BB2[:, :, i] = np.linalg.inv(B2[:, :, i]) @ B2[:, :, i + 1]
         # ekf1.Update(AA1[:, :, i],BB1[:, :, i])
         # iekf1.Update(AA1[:, :, i],BB1[:, :, i])
         # ukf1.Update(AA1[:, :, i],BB1[:, :, i])
         # ekf2.Update(AA2[:, :, i],BB2[:, :, i])
         # iekf2.Update(AA2[:, :, i],BB2[:, :, i])
         # ukf2.Update(AA2[:, :, i],BB2[:, :, i])
-        print("{:.3f}%".format((i+1)/n))
+        # print("{:.3f}%".format(100*(i+1)/n))
 
     
     # Perform pose estimation
     X_est_batch_BP_1,Y_est_batch_BP_1, _, _ = Batch_Processing.pose_estimation(A1, B1)
-    X_est = pose_estimation(A1,B1, method=cv2.CALIB_HAND_EYE_TSAI)
-    X_est2 = pose_estimation(A1,B1, method=cv2.CALIB_HAND_EYE_PARK)
-    X_est3 = pose_estimation(A1,B1, method=cv2.CALIB_HAND_EYE_HORAUD)
-    X_est4 = pose_estimation(A1,B1, method=cv2.CALIB_HAND_EYE_ANDREFF)
-    # X_est_batch_BP_2,Y_est_batch_BP_2, _, _ = Batch_Processing.pose_estimation(A2, B2)
+    X_est_batch_BP_2,Y_est_batch_BP_2, _, _ = Batch_Processing.pose_estimation(A2, B2)
     
     
     # X_est_batch_EKF_1 = result_to_se3(ekf1)
     # X_est_batch_IEKF_1 = result_to_se3(iekf1)
     # X_est_batch_UKF_1 = result_to_se3(ukf1)
+    # X_est_batch_EKF_2 = result_to_se3(ekf2)
+    # X_est_batch_IEKF_2 = result_to_se3(iekf2)
+    # X_est_batch_UKF_2 = result_to_se3(ukf2)
     
     
 
     # Print the results
     # Set the numpy print options
     np.set_printoptions(precision=6, suppress=True)
-    print("\nX Matrix: \n" + str(se3_to_posestamped(X_est_batch_BP_1)))
-    print("\nX Matrix: \n" + str(se3_to_posestamped(X_est)))
-    print("\nX Matrix: \n" + str(se3_to_posestamped(X_est2)))
-    print("\nX Matrix: \n" + str(se3_to_posestamped(X_est3)))
-    print("\nX Matrix: \n" + str(se3_to_posestamped(X_est4)))
+    print("\nX Matrix BP1: \n" + str((X_est_batch_BP_1)))
     # print("\nX Matrix: \n" + str(X_est_batch_EKF_1))
     # print("\nX Matrix: \n" + str(X_est_batch_IEKF_1))
     # print("\nX Matrix: \n" + str(X_est_batch_UKF_1))
+    print("\nY Matrix BP1: \n" + str((Y_est_batch_BP_1)))
+    print("\nX Matrix BP2: \n" + str((X_est_batch_BP_2)))
+    # print("\nX Matrix EKF2: \n" + str(X_est_batch_EKF_2))
+    # print("\nX Matrix IEKF2: \n" + str(X_est_batch_IEKF_2))
+    # print("\nX Matrix UKF2: \n" + str(X_est_batch_UKF_2))
+    print("\nY Matrix BP2: \n" + str((Y_est_batch_BP_2)))
+    print("")
     
-    #print('\n.....Batch Processing Results\n')
-    #print("Y Pose: \n" + str(se3_to_posestamped(Y_est_batch_BP_1)))
-    #print("\nX Pose: \n" + str(se3_to_posestamped(X_est_batch_BP_1)))
-    #print("\nX Matrix: \n" + str(X_est_batch_BP_1))
+    est_X_BP1=np.empty((4, 4, n))
+    est_X_BP2=np.empty((4, 4, n))
+    est_Y_BP1=np.empty((4, 4, n))
+    est_Y_BP2=np.empty((4, 4, n))
+    # est_EKF=np.empty((4, 4, n))
+    # est_IEKF=np.empty((4, 4, n))
+    # est_UKF=np.empty((4, 4, n))
+    # est_EKF2=np.empty((4, 4, n))
+    for i in range(A2.shape[2]-1):
+        est_X_BP1[:,:,i]= np.linalg.inv(A1[:,:,i]) @ Y_est_batch_BP_1 @ B1[:,:,i]
+        est_X_BP2[:,:,i]= np.linalg.inv(A2[:,:,i]) @ Y_est_batch_BP_2 @ B2[:,:,i]
+        est_Y_BP1[:,:,i]= A1[:,:,i] @ X_est_batch_BP_1 @ np.linalg.inv(B1[:,:,i])
+        est_Y_BP2[:,:,i]= A2[:,:,i] @ X_est_batch_BP_2 @ np.linalg.inv(B2[:,:,i])
+        # est_EKF2[:,:,i] = np.linalg.inv(AA2[:,:,i]) @ X_est_batch_EKF_2 @ BB2[:,:,i]
+        # est_IEKF[:,:,i] = np.linalg.inv(AA2[:,:,i]) @ X_est_batch_IEKF_2 @ BB2[:,:,i]
+        # est_UKF[:,:,i] = np.linalg.inv(AA2[:,:,i]) @ X_est_batch_UKF_2 @ BB2[:,:,i]
+        
+    print("\nX Matrix BP1 std dev: \n" + str(np.std(est_X_BP1, axis=2)))
+    print("\nY Matrix BP1 std dev: \n" + str(np.std(est_Y_BP1, axis=2)))
+    print("\nX Matrix BP2 std dev: \n" + str(np.std(est_X_BP2, axis=2)))
+    print("\nY Matrix BP2 std dev: \n" + str(np.std(est_Y_BP2, axis=2)))
+    # print(np.std(est_EKF, axis=2))
+    # print(np.std(est_IEKF, axis=2))
+    # print(np.std(est_UKF, axis=2))
+    # print(np.std(est_EKF2, axis=2))
+        
+    np.save(os.path.join(script_dir, 'X1_matrices.npy'), X_est_batch_BP_1)
+    np.save(os.path.join(script_dir, 'Y1_matrices.npy'), Y_est_batch_BP_1)
+    np.save(os.path.join(script_dir, 'X2_matrices.npy'), X_est_batch_BP_2)
+    np.save(os.path.join(script_dir, 'Y2_matrices.npy'), Y_est_batch_BP_2)
+    
     print("")
 
 if __name__ == '__main__':
