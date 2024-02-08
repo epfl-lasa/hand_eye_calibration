@@ -92,7 +92,7 @@ def main():
 
     recorded_pub = rospy.Publisher("calibration/position_recorded", Bool, queue_size=1)
 
-    n = 3**6 # depends on the number of poses in the control algorithm
+    n = 125 # depends on the number of poses in the control algorithm
     A1 = np.zeros((4,4,n))
     B1 = np.zeros((4,4,n))
     A2 = np.zeros((4,4,n))

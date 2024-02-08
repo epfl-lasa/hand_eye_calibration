@@ -91,6 +91,7 @@ COPY --from=base-workspace / /
 
 RUN pip install transforms3d
 RUN pip install statsmodels
+RUN pip install opencv-python
 
 # start as ROS user
 USER ${USER}
