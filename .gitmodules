@@ -1,6 +1,3 @@
-[submodule "src/Pose-Estimation-for-Sensor-Calibration"]
-	path = src/Pose-Estimation-for-Sensor-Calibration
-	url = git@github.com:Brunoadc/Pose-Estimation-for-Sensor-Calibration.git
 [submodule "src/aruco_ros"]
 	path = src/aruco_ros
 	url = git@github.com:Brunoadc/aruco_ros.git
