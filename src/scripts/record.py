@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import sys
 import os
 import rospy
 import transforms3d
@@ -92,7 +91,9 @@ def main():
 
     recorded_pub = rospy.Publisher("calibration/position_recorded", Bool, queue_size=1)
 
-    n = 125 # depends on the number of poses in the control algorithm
+    nt = 5**3 # depends on the number of positions in the control algorithm
+    nr = 2    # depends on the number of orientations in the control algorithm
+    n = nt*nr 
     A1 = np.zeros((4,4,n))
     B1 = np.zeros((4,4,n))
     A2 = np.zeros((4,4,n))
