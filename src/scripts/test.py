@@ -1,18 +1,10 @@
 #!/usr/bin/env python
-import sys
 import os
-import math
-import pickle
 import rospy
 import transforms3d
 import numpy as np
-import cv2
+import tf
 from geometry_msgs.msg import PoseStamped
-
-script_dir = os.path.dirname(__file__)
-rel_path = "../Pose-Estimation-for-Sensor-Calibration"
-abs_file_path = os.path.join(script_dir, rel_path)
-sys.path.append(abs_file_path)
 
 # Global variables to store the latest data
 latest_cam_pose = None
@@ -30,7 +22,7 @@ def marker_callback(msg):
 
 def posestamped_to_se3(pose_stamped, inverse_transformation=False):
     """
-    Convert PoseStamped message to SO(4) representation (4x4 transformation matrix).
+    Convert PoseStamped message to SE(3) representation (4x4 transformation matrix).
     Optionally, invert the entire transformation matrix.
 
     Args:
@@ -66,26 +58,34 @@ def posestamped_to_se3(pose_stamped, inverse_transformation=False):
 
     return transformation_matrix
 
-    T = result.x[3:]
-    rotation = result.x[:3]
+def matrix_to_pose_stamped(matrix, frame_id="world"):
+    """
+    Convert a 4x4 transformation matrix to a PoseStamped message.
     
-    angle = np.linalg.norm(rotation)
-    if angle < 1e-6:  # Using a small epsilon value for float comparison
-        k = [0, 1, 0]  # Default axis if angle is too small
-    else:
-        k = rotation / angle  # Normalize the axis vector
-
-    # Calculate the rotation matrix using Rodrigues' rotation formula
-    K = np.array([[0, -k[2], k[1]],
-                  [k[2], 0, -k[0]],
-                  [-k[1], k[0], 0]])
-    R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-
-    # Create a 4x4 homogeneous transformation matrix
-    M = np.eye(4)
-    M[:3, :3] = R
-    M[:3, 3] = T
-    return M
+    Args:
+        matrix (numpy.ndarray): A 4x4 transformation matrix.
+        frame_id (str): The frame ID in which the Pose is defined.
+        
+    Returns:
+        geometry_msgs.msg.PoseStamped: The PoseStamped message.
+    """
+    pose_stamped = PoseStamped()
+    pose_stamped.header.frame_id = frame_id
+    pose_stamped.header.stamp = rospy.Time.now()
+    
+    # Extract the translation
+    pose_stamped.pose.position.x = matrix[0, 3]
+    pose_stamped.pose.position.y = matrix[1, 3]
+    pose_stamped.pose.position.z = matrix[2, 3]
+    
+    # Extract the rotation (quaternion) from the matrix
+    quaternion = tf.transformations.quaternion_from_matrix(matrix)
+    pose_stamped.pose.orientation.x = quaternion[0]
+    pose_stamped.pose.orientation.y = quaternion[1]
+    pose_stamped.pose.orientation.z = quaternion[2]
+    pose_stamped.pose.orientation.w = quaternion[3]
+    
+    return pose_stamped
 
 def main():
     # Determine the path for loading the .npy files
@@ -94,6 +94,7 @@ def main():
     
     rospy.Subscriber("/vrpn_client_node/cam_grasp/pose", PoseStamped, cam_callback)
     rospy.Subscriber("aruco_single/pose", PoseStamped, marker_callback)
+    pub = rospy.Publisher("/test/pose", PoseStamped, queue_size = 1)
     
     # Load the X and Y matrices from .npy files in the same directory as the script
     X1 = np.load(os.path.join(script_dir, 'X1_matrices.npy'))
@@ -101,9 +102,9 @@ def main():
     X2 = np.load(os.path.join(script_dir, 'X2_matrices.npy'))
     Y2 = np.load(os.path.join(script_dir, 'Y2_matrices.npy'))
     
-    time_threshold = 0.5
+    time_threshold = 0.2
     try:
-        print("Starting recording process")
+        print("Starting testing process")
         while not rospy.is_shutdown():
             # Store and print the latest data
             if latest_cam_pose and  latest_marker_pose:
@@ -114,8 +115,8 @@ def main():
                 if np.max((delta_time_camera, delta_time_marker)) < time_threshold:
                     A1 = posestamped_to_se3(latest_cam_pose)
                     B1 = posestamped_to_se3(latest_marker_pose, inverse_transformation = True)
-                    Y1 = A1 @ X1 @ np.linalg.inv(B1)
-                    print(Y1[:3,3])
+                    error = B1 @ np.linalg.inv(X1) @ np.linalg.inv(A1) @ Y1
+                    pub.publish(matrix_to_pose_stamped(error))
                 else:
                     if delta_time_camera > time_threshold:
                         rospy.logerr("No data from camera pose since [s]: " +str(delta_time_camera))
@@ -129,7 +130,7 @@ def main():
                 if not latest_marker_pose:
                     rospy.logerr("No data received from marker pose topic")
                     
-            rospy.sleep(1)
+            rospy.sleep(time_threshold)
             
     except rospy.ROSInterruptException:
         pass

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import sys
 import os
 import math
 import numpy as np
@@ -129,20 +128,20 @@ def main():
     for i in range(A2.shape[2]):
         e_tot_1 = e_tot_1 + np.linalg.norm(A1[:,:,i] @ X1 - Y1 @ B1[:,:,i])**2
         e_tot_2 = e_tot_2 + np.linalg.norm(A2[:,:,i] @ X2 - Y2 @ B2[:,:,i])**2
-        e_rot_1 = e_rot_1 + np.power(rx_to_angles((A1[:3,:3,i] @ X1[:3,:3]) @ (Y1[:3,:3] @ B1[:3,:3,i]).T),2)
-        e_rot_2 = e_rot_2 + np.power(rx_to_angles((A2[:3,:3,i] @ X2[:3,:3]) @ (Y2[:3,:3] @ B2[:3,:3,i]).T),2)
-        e_tra_1 = e_tra_1 + np.power((A1[:3,:3,i] @ X1[:3,3] + A1[:3,3,i])-(Y1[:3,:3] @ B1[:3,3,i] + Y1[:3,3]),2)
-        e_tra_2 = e_tra_2 + np.power((A2[:3,:3,i] @ X2[:3,3] + A2[:3,3,i])-(Y2[:3,:3] @ B2[:3,3,i] + Y2[:3,3]),2)
+        e_rot_1 = e_rot_1 + np.absolute(rx_to_angles((A1[:3,:3,i] @ X1[:3,:3]) @ (Y1[:3,:3] @ B1[:3,:3,i]).T))
+        e_rot_2 = e_rot_2 + np.absolute(rx_to_angles((A2[:3,:3,i] @ X2[:3,:3]) @ (Y2[:3,:3] @ B2[:3,:3,i]).T))
+        e_tra_1 = e_tra_1 + np.absolute((A1[:3,:3,i] @ X1[:3,3] + A1[:3,3,i])-(Y1[:3,:3] @ B1[:3,3,i] + Y1[:3,3]))
+        e_tra_2 = e_tra_2 + np.absolute((A2[:3,:3,i] @ X2[:3,3] + A2[:3,3,i])-(Y2[:3,:3] @ B2[:3,3,i] + Y2[:3,3]))
         
         
 
         
     e_tot_1 = np.sqrt(e_tot_1) / n
     e_tot_2 = np.sqrt(e_tot_2) / n
-    e_rot_1 = np.sqrt(e_rot_1 / (n-1))
-    e_rot_2 = np.sqrt(e_rot_2 / (n-1))
-    e_tra_1 = np.sqrt(e_tra_1 / (n-1))
-    e_tra_2 = np.sqrt(e_tra_2 / (n-1))
+    e_rot_1 = e_rot_1 / n
+    e_rot_2 = e_rot_2 / n
+    e_tra_1 = e_tra_1 / n
+    e_tra_2 = e_tra_2 / n
     
     print("\nData size:" + str(A2.shape[2]))
     print("\nCase 1 error tot: \n" + str(e_tot_1))
