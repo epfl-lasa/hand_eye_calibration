@@ -53,21 +53,45 @@ Steps to install your project:
     <img src="Marker.png" width="650" alt="Project Screenshot">
   </div>
 
-  3. **Optitrack:**
+3. **Optitrack:**
 
      Refer to [https://github.com/bonato47/Optitrack_ROS2](https://github.com/bonato47/Optitrack_ROS2/tree/main/ros1_ws) to publish the pose of your camera and change the topic name in src/scripts/record.py accordingly
 
-  4. **Data recording:**
+4. **Data recording:**
      
-     In order to record the data with a franka panda you can use the branch "calibration" of the repo: [https://github.com/epfl-lasa/panda-task-control/tree/calibration] to move the robotic arm to 64 different position and to send the data to the recording process. First start the following script to recording the data and save it correctly:
+     In order to record the data with a franka panda you can use the branch "calibration" of the repo: [https://github.com/epfl-lasa/panda-task-control/tree/calibration] to move the robotic arm to different poses and to send the data to the recording process. First start the following script to recording the data and save it correctly:
      
      ```bash
      python3 src/scripts/record.py
      ```
-     Once the data of a pose has been recorded the calibration script will move to the next position. Mathematicaly a minimum of 3 pose are required, by default n=64, the pose are then saved as .npy files
-     
-  6. **Data processing:**
+     Once the data of a pose has been recorded the calibration script will move to the next position. Mathematicaly a minimum of 3 pose are required, by default nt = 5<sup>3</sup> (5 for each axis) an nr = 2 (two Z axis rotation per position), the pose are then saved as .npy files
+
+6. **Data processing:**
+   
      ```bash
      python3 src/scripts/process.py
      ```
-     The results are shown in both PoseStamped and SE(3) for X1, X2 
+     The matrices X1, Y1, X2, Y2 are saved as .npy file
+     
+     An error metric will be printed, here you have some comparison values for a good calibration previously done:
+
+        | Error Type | Case 1 Values | Case 2 Values |
+        |------------|---------------|---------------|
+        | Total Error | 0.0013 | 0.0012 |
+        | Rotation Error X | 0.432 deg | 0.165 deg |
+        | Rotation Error Y | 0.336 deg | 0.376 deg |
+        | Rotation Error Z | 0.499 deg | 0.504 deg |
+        | Translation Error X | 2.54 mm | 3.48 mm |
+        | Translation Error Y | 0.88 mm | 3.96 mm |
+        | Translation Error Z | 2.58 mm | 5.85 mm |
+
+8. **Calibration testing:**
+   
+    It's important to understand that a small error does not automatically imply a successful calibration. It merely indicates that, based on the provided sets of Ai and Bi, the estimated Xi and Yi are sufficiently accurate. The calibration's quality also depends significantly on the variation in the poses. To evaluate your calibration quality in the first scenario, execute the script provided below. This script publishes a PoseStamped message detailing the error in the Object Frame (B1 X1<sup>-1</sup> A1<sup>-1</sup> Y1).
+     
+   
+     ```bash
+     python3 src/scripts/test.py
+     ```
+     
+   Reposition the robot arm into its extreme poses, ensuring the marker remains within the camera's field of view (without moving the marker). This is to verify that the published error remains minimal for poses beyond the calibrated volume's boundaries.
