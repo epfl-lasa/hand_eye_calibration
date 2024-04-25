@@ -55,7 +55,7 @@ Steps to install your project:
 
 3. **Optitrack:**
 
-     Refer to [https://github.com/bonato47/Optitrack_ROS2](https://github.com/bonato47/Optitrack_ROS2/tree/main/ros1_ws) to publish the pose of your camera and change the topic name in src/scripts/record.py accordingly
+     Refer to [https://github.com/epfl-lasa/optitrack_ros_interface] to publish the pose of your camera and change the topic name in src/scripts/record.py accordingly
 
 4. **Data recording:**
      
