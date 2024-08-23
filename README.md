@@ -18,6 +18,7 @@ Steps to install your project:
 1. **Clone the Repository:**
    ```bash
    git clone https://github.com/epfl-lasa/hand_eye_calibration.git
+   git submodule update --init --recursive
    ```
 2. **Build and start docker image:**
    ```bash
