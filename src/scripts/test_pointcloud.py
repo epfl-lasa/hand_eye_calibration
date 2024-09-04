@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 import os
 import rospy
+import ros_numpy
 import transforms3d
 import numpy as np
 import tf
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import PointCloud2, PointField
+import sensor_msgs.point_cloud2 as pc2
+import std_msgs.msg
+import open3d as o3d
+from std_msgs.msg import Header
 
 # Global variables to store the latest data
 latest_ee_pose = None
-latest_marker_pose = None
+latest_pc_pose = None
 
 # Callback for the marker pose
 def ee_pose_callback(msg):
@@ -16,9 +22,9 @@ def ee_pose_callback(msg):
     latest_ee_pose = msg
 
 # Callback for the marker pose
-def marker_callback(msg):
-    global latest_marker_pose
-    latest_marker_pose = msg
+def pointcloud_callback(msg):
+    global latest_pc_pose
+    latest_pc_pose = msg
 
 def posestamped_to_se3(pose_stamped, inverse_transformation=False):
     """
@@ -58,75 +64,101 @@ def posestamped_to_se3(pose_stamped, inverse_transformation=False):
 
     return transformation_matrix
 
-def matrix_to_pose_stamped(matrix, frame_id="world"):
+def pointcloud_to_se3(pointcloud, inverse_transformation=False):
     """
-    Convert a 4x4 transformation matrix to a PoseStamped message.
+    Converts a PointCloud2 object to a set of SE(3) 4x4 transformation matrices.
     
     Args:
-        matrix (numpy.ndarray): A 4x4 transformation matrix.
-        frame_id (str): The frame ID in which the Pose is defined.
+        pointcloud (sensor_msgs.msg.PointCloud2): The input point cloud.
         
     Returns:
-        geometry_msgs.msg.PoseStamped: The PoseStamped message.
+        np.ndarray: A 4x4xn array of SE(3) transformation matrices.
     """
-    pose_stamped = PoseStamped()
-    pose_stamped.header.frame_id = frame_id
-    pose_stamped.header.stamp = rospy.Time.now()
+    # Initialize the transformation matrix set
+    points_list = list(pc2.read_points(pointcloud, skip_nans=True, field_names=("x", "y", "z")))
     
-    # Extract the translation
-    pose_stamped.pose.position.x = matrix[0, 3]
-    pose_stamped.pose.position.y = matrix[1, 3]
-    pose_stamped.pose.position.z = matrix[2, 3]
+    n_points = len(points_list)
+    se3_matrices = np.zeros((4, 4, n_points))
     
-    # Extract the rotation (quaternion) from the matrix
-    quaternion = tf.transformations.quaternion_from_matrix(matrix)
-    pose_stamped.pose.orientation.x = quaternion[0]
-    pose_stamped.pose.orientation.y = quaternion[1]
-    pose_stamped.pose.orientation.z = quaternion[2]
-    pose_stamped.pose.orientation.w = quaternion[3]
+    # Populate the matrices
+    if inverse_transformation:
+        for i, (x, y, z) in enumerate(points_list):
+            se3_matrices[:, :, i] = np.array([
+                [1, 0, 0, -x],
+                [0, 1, 0, -y],
+                [0, 0, 1, -z],
+                [0, 0, 0, 1]
+            ])
+    else:
+        for i, (x, y, z) in enumerate(points_list):
+            se3_matrices[:, :, i] = np.array([
+                [1, 0, 0, x],
+                [0, 1, 0, y],
+                [0, 0, 1, z],
+                [0, 0, 0, 1]
+            ])
     
-    return pose_stamped
+    return se3_matrices
+
+def pointcloud2_to_open3d(ros_pc2):
+    points = []
+    for point in pc2.read_points(ros_pc2, field_names=("x", "y", "z"), skip_nans=True):
+        points.append([point[0], point[1], point[2]])
+    open3d_pc = o3d.geometry.PointCloud()
+    open3d_pc.points = o3d.utility.Vector3dVector(np.array(points))
+    return open3d_pc
+
+def open3d_to_pointcloud2(open3d_pc, frame_id="camera_color_optical_frame"):
+    header = Header()
+    header.stamp = rospy.Time.now()
+    header.frame_id = frame_id
+    points = np.asarray(open3d_pc.points)
+    ros_pc2 = pc2.create_cloud_xyz32(header, points)
+    return ros_pc2
+
+
 
 def main():
     # Determine the path for loading the .npy files
     script_dir = os.path.dirname(os.path.realpath(__file__))
     rospy.init_node('calibration_tester')
-    
+
     rospy.Subscriber("calibration/ee_pose", PoseStamped, ee_pose_callback)
-    rospy.Subscriber("aruco_single/pose", PoseStamped, marker_callback)
-    pub = rospy.Publisher("/test/pose", PoseStamped, queue_size = 1)
+    rospy.Subscriber("/camera/depth/color/points", PointCloud2, pointcloud_callback)
+    pub = rospy.Publisher("new_pc", PointCloud2, queue_size = 1)
     
     # Load the X and Y matrices from .npy files in the same directory as the script
     X1 = np.load(os.path.join(script_dir, 'X1_matrices.npy'))
-    Y1 = np.load(os.path.join(script_dir, 'Y1_matrices.npy'))
     
     time_threshold = 0.2
     try:
         print("Starting testing process")
         while not rospy.is_shutdown():
             # Store and print the latest data
-            if latest_ee_pose and  latest_marker_pose:
+            if latest_ee_pose and  latest_pc_pose:
                 now = rospy.Time.now().to_sec()
                 delta_time_ee =  now - latest_ee_pose.header.stamp.to_sec()
-                delta_time_marker = now - latest_marker_pose.header.stamp.to_sec()
+                delta_time_pc = now - latest_pc_pose.header.stamp.to_sec()
                 
-                if np.max((delta_time_ee, delta_time_marker)) < time_threshold:
+                if np.max((delta_time_ee, delta_time_pc)) < time_threshold:
                     A1 = posestamped_to_se3(latest_ee_pose)
-                    B1 = posestamped_to_se3(latest_marker_pose, inverse_transformation = True)
-                    error = B1 @ np.linalg.inv(X1) @ np.linalg.inv(A1) @ Y1
-                    pub.publish(matrix_to_pose_stamped(error))
+
+                    B1 = pointcloud2_to_open3d(latest_pc_pose)
+                    new_pc = B1.transform(X1).transform(A1)
+                    pub.publish(open3d_to_pointcloud2(new_pc))
+                    print("published")
                 else:
                     if delta_time_ee > time_threshold:
                         rospy.logerr("No data from ee pose since [s]: " +str(delta_time_ee))
-                    if delta_time_marker > time_threshold:
-                        rospy.logerr("No data from marker pose since [s]: " +str(delta_time_marker))
+                    if delta_time_pc > time_threshold:
+                        rospy.logerr("No data from pc pose since [s]: " +str(delta_time_pc))
                         
                         
             else:
                 if not latest_ee_pose:
                     rospy.logerr("No data received from ee pose topic")
-                if not latest_marker_pose:
-                    rospy.logerr("No data received from marker pose topic")
+                if not latest_pc_pose:
+                    rospy.logerr("No data received from pc pose topic")
                     
             rospy.sleep(time_threshold)
             

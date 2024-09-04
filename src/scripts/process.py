@@ -101,60 +101,41 @@ def main():
     # Load the A and B matrices from .npy files in the same directory as the script
     A1 = np.load(os.path.join(script_dir, 'A1_matrices.npy'))
     B1 = np.load(os.path.join(script_dir, 'B1_matrices.npy'))
-    A2 = np.load(os.path.join(script_dir, 'A2_matrices.npy'))
-    B2 = np.load(os.path.join(script_dir, 'B2_matrices.npy'))
         
-    n = A2.shape[2] 
+    n = A1.shape[2] 
     
     # Perform pose estimation
     X1, Y1 = pose_estimation(A1,B1)
-    X2, Y2 = pose_estimation(A2,B2)
 
     # Print the results
     # Set the numpy print options
     np.set_printoptions(precision=6, suppress=True)
     print("\nX1 Matrix: \n" + str((X1)))
     print("\nY1 Matrix: \n" + str((Y1)))
-    print("\nX2 Matrix: \n" + str((X2)))
-    print("\nY2 Matrix: \n" + str((Y2)))
     print("")
     
     e_tot_1 = 0
-    e_tot_2 = 0
     e_rot_1 = np.zeros(3)
-    e_rot_2 = np.zeros(3)
     e_tra_1 = np.zeros(3)
-    e_tra_2 = np.zeros(3)
-    for i in range(A2.shape[2]):
+    for i in range(n):
         e_tot_1 = e_tot_1 + np.linalg.norm(A1[:,:,i] @ X1 - Y1 @ B1[:,:,i])**2
-        e_tot_2 = e_tot_2 + np.linalg.norm(A2[:,:,i] @ X2 - Y2 @ B2[:,:,i])**2
         e_rot_1 = e_rot_1 + np.absolute(rx_to_angles((A1[:3,:3,i] @ X1[:3,:3]) @ (Y1[:3,:3] @ B1[:3,:3,i]).T))
-        e_rot_2 = e_rot_2 + np.absolute(rx_to_angles((A2[:3,:3,i] @ X2[:3,:3]) @ (Y2[:3,:3] @ B2[:3,:3,i]).T))
         e_tra_1 = e_tra_1 + np.absolute((A1[:3,:3,i] @ X1[:3,3] + A1[:3,3,i])-(Y1[:3,:3] @ B1[:3,3,i] + Y1[:3,3]))
-        e_tra_2 = e_tra_2 + np.absolute((A2[:3,:3,i] @ X2[:3,3] + A2[:3,3,i])-(Y2[:3,:3] @ B2[:3,3,i] + Y2[:3,3]))
         
         
 
         
     e_tot_1 = np.sqrt(e_tot_1) / n
-    e_tot_2 = np.sqrt(e_tot_2) / n
     e_rot_1 = e_rot_1 / n
-    e_rot_2 = e_rot_2 / n
     e_tra_1 = e_tra_1 / n
-    e_tra_2 = e_tra_2 / n
     
-    print("\nData size:" + str(A2.shape[2]))
+    print("\nData size:" + str(n))
     print("\nCase 1 error tot: \n" + str(e_tot_1))
-    print("\nCase 2 error tot: \n" + str(e_tot_2))
     print("\nCase 1 error rot: \n" + str(e_rot_1) + "[degrees]")
-    print("\nCase 2 error rot: \n" + str(e_rot_2) + "[degrees]")
     print("\nCase 1 error tra: \n" + str(e_tra_1 * 1000) + "[mm]")
-    print("\nCase 2 error tra: \n" + str(e_tra_2 * 1000) + "[mm]")
         
     np.save(os.path.join(script_dir, 'X1_matrices.npy'), X1)
     np.save(os.path.join(script_dir, 'Y1_matrices.npy'), Y1)
-    np.save(os.path.join(script_dir, 'X2_matrices.npy'), X2)
-    np.save(os.path.join(script_dir, 'Y2_matrices.npy'), Y2)
     
     print("")
 
